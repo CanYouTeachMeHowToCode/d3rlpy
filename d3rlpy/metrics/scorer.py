@@ -172,6 +172,27 @@ def discounted_sum_of_advantage_scorer(
     # smaller is better
     return -float(np.mean(total_sums))
 
+def average_true_q_value_scorer(
+    algo: AlgoProtocol, episodes: List[Episode]
+) -> float:
+    r"""Returns the average of discounted true Q-values. 
+    Args:
+        algo: algorithm.
+        episodes: list of episodes.
+    Returns:
+        average true Q-value (discounted).
+    """
+    for episode in episodes:
+        for batch in _make_batches(episode, WINDOW_SIZE, algo.n_frames):
+            # estimate values for next observation
+            next_actions = algo.predict([batch.next_observations[0]])
+            next_values = algo.predict_value([batch.next_observations[0]], next_actions)
+            mask = (1.0 - np.asarray(batch.terminals)).reshape(-1)
+            rewards = np.asarray(batch.next_rewards).reshape(-1)
+            if algo.reward_scaler:
+                rewards = algo.reward_scaler.transform_numpy(rewards)
+            y = rewards + algo.gamma * cast(np.ndarray, next_values) * mask
+    return float(np.mean(y))
 
 def average_value_estimation_scorer(
     algo: AlgoProtocol, episodes: List[Episode]
